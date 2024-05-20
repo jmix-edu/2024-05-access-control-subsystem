@@ -2,9 +2,11 @@ package com.company.jmixpm.view.project;
 
 import com.company.jmixpm.entity.Project;
 
+import com.company.jmixpm.security.specific.JmixPmProjectArchiveContext;
 import com.company.jmixpm.view.main.MainView;
 
 import com.vaadin.flow.router.Route;
+import io.jmix.core.AccessManager;
 import io.jmix.core.DataManager;
 import io.jmix.flowui.Notifications;
 import io.jmix.flowui.component.grid.DataGrid;
@@ -31,6 +33,9 @@ public class ProjectListView extends StandardListView<Project> {
 
     private boolean hideArchived;
 
+    @Autowired
+    private AccessManager accessManager;
+
     @Subscribe
     public void onBeforeShow(BeforeShowEvent event) {
         if (hideArchived) {
@@ -55,5 +60,12 @@ public class ProjectListView extends StandardListView<Project> {
 
     public void setHideArchived(boolean hideArchived) {
         this.hideArchived = hideArchived;
+    }
+
+    @Install(to = "projectsDataGrid.archive", subject = "enabledRule")
+    private boolean projectsDataGridArchiveEnabledRule() {
+        JmixPmProjectArchiveContext context = new JmixPmProjectArchiveContext();
+        accessManager.applyRegisteredConstraints(context);
+        return context.isPermitted();
     }
 }

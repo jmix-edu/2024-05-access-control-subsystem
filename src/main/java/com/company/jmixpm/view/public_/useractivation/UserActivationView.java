@@ -2,6 +2,7 @@ package com.company.jmixpm.view.public_.useractivation;
 
 import com.company.jmixpm.app.RegistrationService;
 import com.company.jmixpm.entity.User;
+import com.company.jmixpm.security.DatabaseUserRepository;
 import com.company.jmixpm.view.login.LoginView;
 import com.company.jmixpm.view.main.MainView;
 
@@ -11,22 +12,31 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinServletRequest;
 import com.vaadin.flow.server.VaadinServletResponse;
+import com.vaadin.flow.server.auth.AnonymousAllowed;
+import io.jmix.core.security.AccessDeniedException;
 import io.jmix.core.security.SecurityContextHelper;
+import io.jmix.core.security.SystemAuthenticationToken;
 import io.jmix.flowui.Notifications;
 import io.jmix.flowui.ViewNavigators;
 import io.jmix.flowui.component.textfield.JmixPasswordField;
 import io.jmix.flowui.component.validation.ValidationErrors;
 import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.view.*;
+import io.jmix.securityflowui.authentication.AuthDetails;
 import io.jmix.securityflowui.authentication.LoginViewSupport;
 import io.micrometer.core.instrument.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 
+@AnonymousAllowed
 @Route(value = "activate")
 @ViewController("UserActivationView")
 @ViewDescriptor("user-activation-view.xml")
@@ -64,7 +74,10 @@ public class UserActivationView extends StandardView {
     private JmixButton returnToLoginBtn;
 
     private User user;
+
     private boolean initialized = false;
+    @Autowired
+    private DatabaseUserRepository databaseUserRepository;
 
     @Subscribe
     public void onQueryParametersChange(final QueryParametersChangeEvent event) {
@@ -103,21 +116,30 @@ public class UserActivationView extends StandardView {
         String password = passwordField.getValue();
         registrationService.activateUser(user, password);
 
+
         //loginByPassword(password);
 
         loginAsTrusted();
     }
 
     private void loginByPassword(String password) {
-        // todo login with password
+        try {
+            loginViewSupport.authenticate(AuthDetails.of(user.getUsername(), password));
+        } catch (final BadCredentialsException | DisabledException | LockedException | AccessDeniedException e) {
+            log.warn("Login failed for user '{}': {}", user.getUsername(), e.toString());
+            notifications.create("Activation failed")
+                    .withType(Notifications.Type.ERROR)
+                    .show();
+        }
     }
 
     // mostly copied from io.jmix.securityui.authentication.LoginScreenSupport
     private void loginAsTrusted() {
         log.info("Login without password");
 
-        // todo login without password
-        Authentication authentication = null;
+        user = (User) databaseUserRepository.loadUserByUsername(user.getUsername());
+
+        Authentication authentication = new SystemAuthenticationToken(user, user.getAuthorities());
 
         VaadinServletRequest request = VaadinServletRequest.getCurrent();
         VaadinServletResponse response = VaadinServletResponse.getCurrent();
@@ -125,6 +147,15 @@ public class UserActivationView extends StandardView {
         sessionAuthenticationStrategy.onAuthentication(authentication, request, response);
 
         SecurityContextHelper.setAuthentication(authentication);
+
+        try {
+            authenticationManager.authenticate(authentication);
+        } catch (AuthenticationException e) {
+            notifications.create("Activation error")
+                    .withType(Notifications.Type.ERROR)
+                    .show();
+            return;
+        }
 
         viewNavigators.view(MainView.class)
                 .navigate();

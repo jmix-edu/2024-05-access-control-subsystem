@@ -18,7 +18,7 @@ public interface DeveloperRole extends UiMinimalRole {
     String CODE = "developer";
 
     @MenuPolicy(menuIds = {"Task_.list", "MyNotifications", "TimeEntry.list"})
-    @ViewPolicy(viewIds = {"Task_.list", "MyNotifications", "TimeEntry.list", "QuickAddTimeEntry", "TimeEntry.detail", "Task_.detail", "User.list"}, viewClasses = {})
+    @ViewPolicy(viewIds = {"Task_.list", "MyNotifications", "TimeEntry.list", "QuickAddTimeEntry", "TimeEntry.detail", "Task_.detail", "User.list"})
     void screens();
 
     @EntityAttributePolicy(entityClass = Notification.class, attributes = "*", action = EntityAttributePolicyAction.VIEW)
@@ -36,4 +36,5 @@ public interface DeveloperRole extends UiMinimalRole {
     @EntityPolicy(entityClass = User.class, actions = EntityPolicyAction.READ)
     @EntityAttributePolicy(entityClass = User.class, attributes = {"username", "firstName", "lastName", "email", "id", "version"}, action = EntityAttributePolicyAction.VIEW)
     void user();
+
 }
